@@ -4,7 +4,7 @@
 VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyIndex,
     VkCommandPoolCreateFlags flags /*= 0*/)
 {
-    VkCommandPoolCreateInfo info = {};
+    VkCommandPoolCreateInfo info = {};  // initialize the struct to zero (super important)
     info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     info.pNext = nullptr;
     info.queueFamilyIndex = queueFamilyIndex;
@@ -16,12 +16,12 @@ VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyInd
 VkCommandBufferAllocateInfo vkinit::command_buffer_allocate_info(
     VkCommandPool pool, uint32_t count /*= 1*/)
 {
-    VkCommandBufferAllocateInfo info = {};
+    VkCommandBufferAllocateInfo info = {};  // initialize the struct to zero (super important)
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     info.pNext = nullptr;
 
-    info.commandPool = pool;
-    info.commandBufferCount = count;
+    info.commandPool = pool; // commands will be made from our _commandPool
+    info.commandBufferCount = count; // we will allocate 1 command buffer
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // hard-coded into Primary, will not be using Secondary in our implementation.
     return info;
 }
