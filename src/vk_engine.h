@@ -9,6 +9,9 @@ struct FrameData {
 
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
+
+	VkSemaphore _swapchainSemaphore, _renderSemaphore;	// (Sync) Semaphores used in GPU->GPU
+	VkFence _renderFence; // (Sync) Fence used in CPU->GPU
 };
 constexpr unsigned int FRAME_OVERLAP = 2;
 
