@@ -7,7 +7,7 @@ VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyInd
     VkCommandPoolCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     info.pNext = nullptr;
-
+    info.queueFamilyIndex = queueFamilyIndex;
     info.flags = flags;
     return info;
 }
@@ -22,7 +22,7 @@ VkCommandBufferAllocateInfo vkinit::command_buffer_allocate_info(
 
     info.commandPool = pool;
     info.commandBufferCount = count;
-    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // hard-coded into Primary, will not be using Secondary in our implementation.
     return info;
 }
 //< init_cmd
