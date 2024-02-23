@@ -20,7 +20,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
-
+// check for errors, used in almost every step of our engine initialization code
 #define VK_CHECK(x)                                                     \
     do {                                                                \
         VkResult err = x;                                               \
@@ -29,3 +29,48 @@
             abort();                                                    \
         }                                                               \
     } while (0)
+
+//  First In Last Out queue for scalable deletion and cleanup, common in lots of engines
+struct DeletionQueue {
+    std::deque<std::function<void()>> deletors;
+
+    // not optimal if we need to d elete thousands of objects, but for now this is fine
+    // alternatively, a better implementation would be to store arrays of vulkan handles
+    // of various types, such as VkImage, VkBuffer, etc. and then delete those from a loop.
+    void push_function(std::function<void()>&& function)
+    {
+        deletors.push_back(function);
+    }
+
+    void flush() {
+        // reverse iterate the deletion queue to execute all the functions
+        for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+            (*it)(); // call functors
+        }
+
+        deletors.clear();
+    }
+};
+
+// important data required for rendering our frames, commands and semaphores
+struct FrameData {
+
+    VkCommandPool _commandPool;
+    VkCommandBuffer _mainCommandBuffer;
+
+    VkSemaphore _swapchainSemaphore, _renderSemaphore;	// (Sync) Semaphores used in GPU->GPU
+    VkFence _renderFence; // (Sync) Fence used in CPU->GPU
+
+    
+    DeletionQueue _deletionQueue;
+};
+constexpr unsigned int FRAME_OVERLAP = 2;
+
+// holds data needed for an image
+struct AllocatedImage {
+    VkImage image;
+    VkImageView imageView;
+    VmaAllocation allocation;
+    VkExtent3D imageExtent;
+    VkFormat imageFormat;
+};

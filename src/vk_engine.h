@@ -5,15 +5,6 @@
 
 #include <vk_types.h>
 
-struct FrameData {
-
-	VkCommandPool _commandPool;
-	VkCommandBuffer _mainCommandBuffer;
-
-	VkSemaphore _swapchainSemaphore, _renderSemaphore;	// (Sync) Semaphores used in GPU->GPU
-	VkFence _renderFence; // (Sync) Fence used in CPU->GPU
-};
-constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 public:
@@ -46,18 +37,30 @@ public:
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
 
+	DeletionQueue _mainDeletionQueue;
+
+	VmaAllocator _allocator;
+
+	// draw resources
+	AllocatedImage _drawImage;
+	VkExtent2D _drawExtent;
+
+
+
 public:
 
-	//initializes everything in the engine
+	// initializes everything in the engine
 	void init();
 
-	//shuts down the engine
+	// shuts down the engine
 	void cleanup();
 
-	//draw loop
+	// draw loop, holds syncronization, cmb buffer management, transitions, ...
 	void draw();
+	// draw commands themselves
+	void draw_background(VkCommandBuffer cmd);
 
-	//run main loop
+	// run main loop
 	void run();
 
 private:
