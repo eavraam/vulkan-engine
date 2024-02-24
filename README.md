@@ -21,4 +21,5 @@ README.md is under construction, but just to keep track of the completed tasks s
 2. Drawing with Compute
 
 - Improving the render loop
+- Vulkan shaders (theory session)
 - 
