@@ -74,3 +74,21 @@ struct AllocatedImage {
     VkExtent3D imageExtent;
     VkFormat imageFormat;
 };
+
+// push constants, same form as in shader
+struct ComputePushConstants {
+    glm::vec4 data1;
+    glm::vec4 data2;
+    glm::vec4 data3;
+    glm::vec4 data4;
+};
+
+// holds data in order to later store an array of compute pipelines
+struct ComputeEffect {
+    const char* name;
+
+    VkPipeline pipeline;
+    VkPipelineLayout layout;
+
+    ComputePushConstants data;
+};

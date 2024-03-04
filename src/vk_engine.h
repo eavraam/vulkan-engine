@@ -4,10 +4,16 @@
 #pragma once
 
 #include <vk_types.h>
-
+#include <vk_descriptors.h>
+#include <vk_pipelines.h>
 
 class VulkanEngine {
 public:
+
+	// immediate submit structures
+	VkFence _immFence;
+	VkCommandBuffer _immCommandBuffer;
+	VkCommandPool _immCommandPool;
 
 	bool _isInitialized{ false };
 	int _frameNumber {0};
@@ -45,29 +51,48 @@ public:
 	AllocatedImage _drawImage;
 	VkExtent2D _drawExtent;
 
+	DescriptorAllocator globalDescriptorAllocator;
+
+	VkDescriptorSet _drawImageDescriptors;
+	VkDescriptorSetLayout _drawImageDescriptorLayout;
+
+	VkPipeline _gradientPipeline;
+	VkPipelineLayout _gradientPipelineLayout;
+
+	std::vector<ComputeEffect> backgroundEffects;
+	int currentBackgroundEffect{ 0 };
+
 
 
 public:
 
 	// initializes everything in the engine
 	void init();
-
 	// shuts down the engine
 	void cleanup();
-
 	// draw loop, holds syncronization, cmb buffer management, transitions, ...
 	void draw();
 	// draw commands themselves
 	void draw_background(VkCommandBuffer cmd);
-
+	// draw imgui
+	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	// run main loop
 	void run();
+
+	// use a fence and a different command buffer from the one we use on draws
+	// without synchronizing or with rendering logic
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 private:
 	void init_vulkan();
 	void init_swapchain();
 	void init_commands();
 	void init_sync_structures();
+	void init_descriptors();
+	void init_pipelines();
+	//void init_background_pipelines();
+
+	void init_imgui();
 
 	void create_swapchain(uint32_t width, uint32_t height);
 	void destroy_swapchain();
