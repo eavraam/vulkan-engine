@@ -575,10 +575,10 @@ void VulkanEngine::init_pipelines()
     //destroy structures properly
     vkDestroyShaderModule(_device, gradientShader, nullptr);
     vkDestroyShaderModule(_device, skyShader, nullptr);
-    _mainDeletionQueue.push_function([&]() {
+    _mainDeletionQueue.push_function([=]() {
         vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
-        vkDestroyPipeline(_device, sky.pipeline, nullptr);
         vkDestroyPipeline(_device, gradient.pipeline, nullptr);
+        vkDestroyPipeline(_device, sky.pipeline, nullptr);
     });
 
  //< comp_pipeline_multi
