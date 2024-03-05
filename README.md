@@ -28,4 +28,6 @@ README.md is under construction, but just to keep track of the completed tasks s
 
 3. Graphics Pipelines
 
+- The Graphics Pipiline
+- Setting up render pipeline
 - 

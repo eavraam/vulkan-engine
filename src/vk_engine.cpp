@@ -1,33 +1,32 @@
 ﻿//> includes
 #include "vk_engine.h"
-
+// SDL
 #include <SDL.h>
 #include <SDL_vulkan.h>
-
+// my_headers
 #include <vk_initializers.h>
 #include <vk_types.h>
 #include <vk_images.h>
-
+// memory
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
-
-#include <chrono>
-#include <thread>
-
-//bootstrap library
+// bootstrap
 #include "VkBootstrap.h"
-
 // imgui
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
-
+// other
+#include <chrono>
+#include <thread>
+//< includes
 
 VulkanEngine* loadedEngine = nullptr;
 
 VulkanEngine& VulkanEngine::Get() { return *loadedEngine; }
 constexpr bool bUseValidationLayers = false;
 
+//> engine_init
 void VulkanEngine::init()
 {
     // only one engine initialization is allowed with the application.
@@ -67,7 +66,9 @@ void VulkanEngine::init()
     // everything went fine
     _isInitialized = true;
 }
+//< engine_init
 
+//> engine_cleanup
 void VulkanEngine::cleanup()
 {
     // Objects have dependencies on each other, and we need to delete them in the correct order.
@@ -100,7 +101,9 @@ void VulkanEngine::cleanup()
     // clear engine pointer
     loadedEngine = nullptr;
 }
+//< engine_cleanup
 
+//> draw_functions
 void VulkanEngine::draw()
 {
     // wait until the GPU has finished rendering the last frame. Timeout of 1 second
@@ -134,6 +137,7 @@ void VulkanEngine::draw()
     _drawExtent.width = _drawImage.imageExtent.width;
     _drawExtent.height = _drawImage.imageExtent.height;
 
+//> draw_barriers
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
     // transition our main draw image into general layout, so we can write into it
@@ -142,12 +146,19 @@ void VulkanEngine::draw()
 
     draw_background(cmd);
 
-    //transition the draw image and the swapchain image into their correct transfer layouts
-    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+    draw_geometry(cmd);
+
+    //transition the draw image and the swapchain image into their correct transfer layouts
+    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+//< draw_barriers
+
+//> copy_image
     // execute a copy from the draw image into the swapchain
     vkutil::copy_image_to_image(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex], _drawExtent, _swapchainExtent);
+//< copy_image
 
     // draw imgui into the swapchain image
     draw_imgui(cmd, _swapchainImageViews[swapchainImageIndex]);
@@ -193,7 +204,6 @@ void VulkanEngine::draw()
     // increase the number of frames drawn
     _frameNumber++;
 }
-
 void VulkanEngine::draw_background(VkCommandBuffer cmd)
 {
     // make a clear-color from frame number. This will flash with a 120 frame period
@@ -219,6 +229,43 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height / 16.0), 1);
 }
 
+
+void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
+{
+    // begin a render pass connected to our draw image
+    VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
+    
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, nullptr);
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
+
+    // set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width  = _drawExtent.width;
+    viewport.height = _drawExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width  = _drawExtent.width;
+    scissor.extent.height = _drawExtent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    // launch a draw command to draw 3 vertices
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+
+    vkCmdEndRendering(cmd);
+}
+    
+
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
 {
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(targetImageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
@@ -231,7 +278,9 @@ void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
     vkCmdEndRendering(cmd);
 
 }
+//< draw_functions
 
+//> engine_run
 void VulkanEngine::run()
 {
     SDL_Event e;
@@ -292,16 +341,16 @@ void VulkanEngine::run()
 
             ImGui::End();
         }
-        ImGui::Render();
 
-        //make imgui calculate internal draw structures
         ImGui::Render();
 
         // our draw function
         draw();
     }
 }
+//< engine_run
 
+//> init_functions 
 void VulkanEngine::init_vulkan()
 {
     // create a builder from the bootstrap library
@@ -370,7 +419,6 @@ void VulkanEngine::init_vulkan()
         vmaDestroyAllocator(_allocator);
     });
 }
-
 void VulkanEngine::init_swapchain()
 {
     create_swapchain(_windowExtent.width, _windowExtent.height);
@@ -414,7 +462,6 @@ void VulkanEngine::init_swapchain()
         vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
     });
 }
-
 void VulkanEngine::init_commands()
 {
     // create a command pool for commands submitted to the graphics queue
@@ -442,7 +489,6 @@ void VulkanEngine::init_commands()
         vkDestroyCommandPool(_device, _immCommandPool, nullptr);
     });
 }
-
 void VulkanEngine::init_sync_structures()
 {
     // create synchronization structures
@@ -463,7 +509,6 @@ void VulkanEngine::init_sync_structures()
     VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_immFence));
     _mainDeletionQueue.push_function([=]() { vkDestroyFence(_device, _immFence, nullptr); });
 }
-
 void VulkanEngine::init_descriptors()
 {
     //create a descriptor pool that will hold 10 sets with 1 image each
@@ -500,8 +545,15 @@ void VulkanEngine::init_descriptors()
 
     vkUpdateDescriptorSets(_device, 1, &drawImageWrite, 0, nullptr);
 }
-
 void VulkanEngine::init_pipelines()
+{
+    // Compute pipelines
+    init_background_pipelines();
+
+    // Graphics pipelines
+    init_triangle_pipeline();
+}
+void VulkanEngine::init_background_pipelines()
 {
 //> comp_pipeline_pc
     VkPipelineLayoutCreateInfo computeLayout{};
@@ -526,10 +578,16 @@ void VulkanEngine::init_pipelines()
     if (!vkutil::load_shader_module("../../shaders/gradient_color.comp.spv", _device, &gradientShader)) {
         fmt::print("Error when building the compute shader \n");
     }
+    else {
+        fmt::print("Background gradient shader succesfully loaded.\n");
+    }
 
     VkShaderModule skyShader;
     if (!vkutil::load_shader_module("../../shaders/sky.comp.spv", _device, &skyShader)) {
         fmt::print("Error when building the compute shader \n");
+    }
+    else {
+        fmt::print("Background sky shader succesfully loaded.\n");
     }
 
     VkPipelineShaderStageCreateInfo stageinfo{};
@@ -579,69 +637,73 @@ void VulkanEngine::init_pipelines()
         vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
         vkDestroyPipeline(_device, gradient.pipeline, nullptr);
         vkDestroyPipeline(_device, sky.pipeline, nullptr);
-    });
+        });
 
- //< comp_pipeline_multi
+//< comp_pipeline_multi
 }
-
-void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
+void VulkanEngine::init_triangle_pipeline()
 {
-    VK_CHECK(vkResetFences(_device, 1, &_immFence));
-    VK_CHECK(vkResetCommandBuffer(_immCommandBuffer, 0));
-
-    VkCommandBuffer cmd = _immCommandBuffer;
-
-    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-    function(cmd);
-
-    VK_CHECK(vkEndCommandBuffer(cmd));
-
-    VkCommandBufferSubmitInfo cmdinfo = vkinit::command_buffer_submit_info(cmd);
-    VkSubmitInfo2 submit = vkinit::submit_info(&cmdinfo, nullptr, nullptr);
-
-    // submit command buffer to the queue and execute it.
-    //  _renderFence will now block until the graphic commands finish execution
-    VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submit, _immFence));
-
-    VK_CHECK(vkWaitForFences(_device, 1, &_immFence, true, 9999999999));
-}
-
-void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
-{
-    vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU, _device, _surface };
-
-    _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
-    vkb::Swapchain vkbSwapchain = swapchainBuilder
-        // use default format selection
-        .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-        // use vsync present mode
-        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-        .build()
-        .value();
-
-    _swapchainExtent = vkbSwapchain.extent;
-    // store swapchain and its related images
-    _swapchain = vkbSwapchain.swapchain;
-    _swapchainImages = vkbSwapchain.get_images().value();
-    _swapchainImageViews = vkbSwapchain.get_image_views().value();
-}
-
-void VulkanEngine::destroy_swapchain()
-{
-    vkDestroySwapchainKHR(_device, _swapchain, nullptr);
-
-    // destroy swapchain resources
-    for (int i = 0; i < _swapchainImageViews.size(); i++)
-    {
-        vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+//> triangle_shaders
+    VkShaderModule triangleVertexShader;
+    if (!vkutil::load_shader_module("../../shaders/colored_triangle.vert.spv", _device, &triangleVertexShader)) {
+        fmt::print("Error when building the triangle vertex shader module.");
     }
-}
+    else {
+        fmt::print("Triangle vertex shader succesfully loaded.\n");
+    }
 
+    VkShaderModule triangleFragShader;
+    if (!vkutil::load_shader_module("../../shaders/colored_triangle.frag.spv", _device, &triangleFragShader)) {
+        fmt::print("Error when building the triangle fragment shader module.");
+    }
+    else {
+        fmt::print("Triangle fragment shader succesfully loaded.\n");
+    }
+
+    // build the pipeline layout that controls the inputs/outputs of the shader
+    // we are not using descriptor sets or other systems yet, so no need to 
+    // use anything other than empty default.
+    VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+    VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_trianglePipelineLayout));
+//< triangle_shaders
+
+//> triangle_pipeline_builder
+    PipelineBuilder pipelineBuilder;
+
+    // use the triangle layout we created
+    pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
+    // connecting the vertex and pixel shaders to the pipeline
+    pipelineBuilder.set_shaders(triangleVertexShader, triangleFragShader);
+    // it will draw triangles
+    pipelineBuilder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    // filled triangles
+    pipelineBuilder.set_polygon_mode(VK_POLYGON_MODE_FILL);
+    // no backface culling
+    pipelineBuilder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    // no multisampling
+    pipelineBuilder.set_multisampling_none();
+    // no blending
+    pipelineBuilder.disable_blending();
+    // no depth testing
+    pipelineBuilder.disable_depthtest();
+
+    // connect the image format we will draw into, from draw image
+    pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
+    pipelineBuilder.set_depth_format(VK_FORMAT_UNDEFINED);
+
+    // finally build the pipeline
+    _trianglePipeline = pipelineBuilder.build_pipeline(_device);
+
+    // clean structures
+    vkDestroyShaderModule(_device, triangleFragShader, nullptr);
+    vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
+
+    _mainDeletionQueue.push_function([&]() {
+        vkDestroyPipelineLayout(_device, _trianglePipelineLayout, nullptr);
+        vkDestroyPipeline(_device, _trianglePipeline, nullptr);
+        });
+//< triangle_pipeline_builder
+}
 void VulkanEngine::init_imgui()
 {
     // 1: create descriptor pool for IMGUI
@@ -705,3 +767,65 @@ void VulkanEngine::init_imgui()
         ImGui_ImplVulkan_Shutdown();
         });
 }
+//< init_functions
+
+//> imm_submit
+void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
+{
+    VK_CHECK(vkResetFences(_device, 1, &_immFence));
+    VK_CHECK(vkResetCommandBuffer(_immCommandBuffer, 0));
+
+    VkCommandBuffer cmd = _immCommandBuffer;
+
+    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    function(cmd);
+
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    VkCommandBufferSubmitInfo cmdinfo = vkinit::command_buffer_submit_info(cmd);
+    VkSubmitInfo2 submit = vkinit::submit_info(&cmdinfo, nullptr, nullptr);
+
+    // submit command buffer to the queue and execute it.
+    //  _renderFence will now block until the graphic commands finish execution
+    VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submit, _immFence));
+
+    VK_CHECK(vkWaitForFences(_device, 1, &_immFence, true, 9999999999));
+}
+//< imm_submit
+
+//> swapchain
+void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
+{
+    vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU, _device, _surface };
+
+    _swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+
+    vkb::Swapchain vkbSwapchain = swapchainBuilder
+        // use default format selection
+        .set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+        // use vsync present mode
+        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+        .build()
+        .value();
+
+    _swapchainExtent = vkbSwapchain.extent;
+    // store swapchain and its related images
+    _swapchain = vkbSwapchain.swapchain;
+    _swapchainImages = vkbSwapchain.get_images().value();
+    _swapchainImageViews = vkbSwapchain.get_image_views().value();
+}
+void VulkanEngine::destroy_swapchain()
+{
+    vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+
+    // destroy swapchain resources
+    for (int i = 0; i < _swapchainImageViews.size(); i++)
+    {
+        vkDestroyImageView(_device, _swapchainImageViews[i], nullptr);
+    }
+}
+//< swapchain
