@@ -16,7 +16,7 @@ README.md is under construction, but just to keep track of the completed tasks s
 - Rendering Loop
 - Mainloop Code
 
-==> Setting the main initialization code, ends with a flashing blue screen (something is rendered, hooray!)
+==> Setting the main initialization code, ends with a flashing blue screen (something is rendered, hooray).
 
 2. Drawing with Compute
 
@@ -26,8 +26,11 @@ README.md is under construction, but just to keep track of the completed tasks s
 - ImGui
 - Push Constants
 
+==> Compute shaders and ImGui are up and running.
+
 3. Graphics Pipelines
 
 - The Graphics Pipiline
 - Setting up render pipeline
-- 
+- Mesh buffers
+-

@@ -92,3 +92,34 @@ struct ComputeEffect {
 
     ComputePushConstants data;
 };
+
+// holds data for a given buffer
+struct AllocatedBuffer {
+    VkBuffer buffer;
+    VmaAllocation allocation;
+    VmaAllocationInfo info;
+};
+
+// vertex format
+struct Vertex {
+    // The uv parameters are interleaved due to alignement limitations on GPUs.
+    // We want this structure to match the shader version, so interleaving it like this improves it.
+    glm::vec3 position;
+    float uv_x;
+    glm::vec3 normal;
+    float uv_y;
+    glm::vec4 color;
+};
+
+// holds the resources needed for a mesh
+struct GPUMeshBuffers {
+    AllocatedBuffer indexBuffer;
+    AllocatedBuffer vertexBuffer;
+    VkDeviceAddress vertexBufferAddress;
+};
+
+// push constants for our mesh object draws
+struct GPUDrawPushConstants {
+    glm::mat4 worldMatrix;
+    VkDeviceAddress vertexBuffer;
+};

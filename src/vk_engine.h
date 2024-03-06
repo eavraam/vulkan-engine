@@ -87,6 +87,13 @@ public:
 	// without synchronizing or with rendering logic
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+	// buffer
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void destroy_buffer(const AllocatedBuffer& buffer);
+
+	// create buffers and fill them on the GPU
+	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
 private:
 	void init_vulkan();
 	void init_swapchain();
