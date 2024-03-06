@@ -6,6 +6,7 @@
 #include <vk_types.h>
 #include <vk_descriptors.h>
 #include <vk_pipelines.h>
+#include <vk_loader.h>
 
 class VulkanEngine {
 public:
@@ -17,6 +18,7 @@ public:
 
 	bool _isInitialized{ false };
 	int _frameNumber {0};
+	bool resize_requested{ false };
 	bool stop_rendering{ false };
 	VkExtent2D _windowExtent{ 1200 , 600 };
 
@@ -36,6 +38,8 @@ public:
 	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
 	VkExtent2D _swapchainExtent;
+	VkExtent2D _drawExtent;
+	float renderScale = 1.f;
 
 	FrameData _frames[FRAME_OVERLAP];
 	FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
@@ -49,6 +53,7 @@ public:
 
 	// draw resources
 	AllocatedImage _drawImage;
+	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 
 	DescriptorAllocator globalDescriptorAllocator;
@@ -68,6 +73,8 @@ public:
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
 	GPUMeshBuffers rectangle;
+
+	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 
 public:
@@ -98,6 +105,7 @@ public:
 	// create buffers and fill them on the GPU
 	GPUMeshBuffers uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
+
 private:
 	void init_vulkan();
 	void init_swapchain();
@@ -114,4 +122,5 @@ private:
 
 	void create_swapchain(uint32_t width, uint32_t height);
 	void destroy_swapchain();
+	void resize_swapchain();
 };

@@ -4,8 +4,8 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 // my_headers
-#include <vk_initializers.h>
 #include <vk_types.h>
+#include <vk_initializers.h>
 #include <vk_images.h>
 // memory
 #define VMA_IMPLEMENTATION
@@ -19,6 +19,7 @@
 // other
 #include <chrono>
 #include <thread>
+#include <glm/gtx/transform.hpp>
 //< includes
 
 VulkanEngine* loadedEngine = nullptr;
@@ -36,7 +37,7 @@ void VulkanEngine::init()
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     _window = SDL_CreateWindow(
         "Vulkan Engine",
@@ -117,7 +118,16 @@ void VulkanEngine::draw()
 
     // request image from the swapchain
     uint32_t swapchainImageIndex;
-    VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, get_current_frame()._swapchainSemaphore, nullptr, &swapchainImageIndex));
+
+    VkResult e = vkAcquireNextImageKHR(_device, _swapchain, 1000000000, get_current_frame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
+    if (e == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        resize_requested = true;
+        return;
+    }
+
+    _drawExtent.width = std::min(_swapchainExtent.width, _drawImage.imageExtent.width) * renderScale;
+    _drawExtent.height = std::min(_swapchainExtent.height, _drawImage.imageExtent.height) * renderScale;
     
     // naming it cmd for shorter writing
     VkCommandBuffer cmd = get_current_frame()._mainCommandBuffer;
@@ -136,8 +146,6 @@ void VulkanEngine::draw()
     // make the swapchain image into writeable mode before rendering
     vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-    _drawExtent.width = _drawImage.imageExtent.width;
-    _drawExtent.height = _drawImage.imageExtent.height;
 
 //> draw_barriers
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
@@ -149,6 +157,7 @@ void VulkanEngine::draw()
     draw_background(cmd);
 
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     draw_geometry(cmd);
 
@@ -201,7 +210,12 @@ void VulkanEngine::draw()
 
     presentInfo.pImageIndices = &swapchainImageIndex;
 
-    VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
+    VkResult presentResult = vkQueuePresentKHR(_graphicsQueue, &presentInfo);
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        resize_requested = true;
+        return;
+    }
 
     // increase the number of frames drawn
     _frameNumber++;
@@ -234,8 +248,9 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
     // begin a render pass connected to our draw image
     VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(_drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
-    
-    VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, nullptr);
+    VkRenderingAttachmentInfo depthAttachment = vkinit::depth_attachment_info(_depthImage.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _trianglePipeline);
@@ -260,19 +275,44 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     // launch a draw command to draw 3 vertices
-    vkCmdDraw(cmd, 3, 1, 0, 0);
+    //vkCmdDraw(cmd, 3, 1, 0, 0);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _meshPipeline);
 
+    
     GPUDrawPushConstants push_constants;
-    push_constants.worldMatrix = glm::mat4{ 1.f };
+
+//> draw_rect
+    /*push_constants.worldMatrix = glm::mat4{1.f};
     push_constants.vertexBuffer = rectangle.vertexBufferAddress;
 
     vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
     vkCmdBindIndexBuffer(cmd, rectangle.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);*/
+//< draw_rect
 
+//> view_projection
+    // camera view matrix
+    glm::mat4 view = glm::translate(glm::vec3{ 0, 0, -5 });
+    // camera projection matrix
+    // zNear = 10000.f, zFar = 0.1f --> depth from 1 to 0 respectively
+    // => greatly increases the quality of depth testing
+    glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
+
+    // invert the Y direction on projection matrix, so that we are more similar to opengl and gltf axis
+    projection[1][1] *= -1;
+
+    push_constants.worldMatrix = projection * view;
+//< view_projection 
+//> draw_monkey
+    push_constants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
+
+    vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
+    vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
+//< draw_monkey
     vkCmdEndRendering(cmd);
 }
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -328,6 +368,9 @@ void VulkanEngine::run()
             continue;
         }
 
+        if (resize_requested) {
+            resize_swapchain();
+        }
 
         // imgui new frame
         ImGui_ImplVulkan_NewFrame();
@@ -336,11 +379,10 @@ void VulkanEngine::run()
 
        // imgui window information
         if (ImGui::Begin("background")) {
+            ImGui::SliderFloat("Render Scale", &renderScale, 0.3f, 1.f);
 
             ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
-
             ImGui::Text("Selected effect: ", selected.name);
-
             ImGui::SliderInt("Effect Index", &currentBackgroundEffect, 0, backgroundEffects.size() - 1);
 
             ImGui::InputFloat4("data1", (float*)&selected.data.data1);
@@ -350,7 +392,6 @@ void VulkanEngine::run()
 
             ImGui::End();
         }
-
         ImGui::Render();
 
         // our draw function
@@ -460,16 +501,52 @@ void VulkanEngine::init_swapchain()
     // allocate and create the image
     vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
 
-    // draw an image-view for the draw image to use for rendering
+    // build an image-view for the draw image to use for rendering
     VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
 
     VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_drawImage.imageView));
+
+
+//> depth_img
+    _depthImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+    _depthImage.imageExtent = drawImageExtent;
+    VkImageUsageFlags depthImageUsages{};
+    depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+    VkImageCreateInfo dimg_info = vkinit::image_create_info(_depthImage.imageFormat, depthImageUsages, drawImageExtent);
+    
+    // allocate and create image
+    vmaCreateImage(_allocator, &dimg_info, &rimg_allocinfo, &_depthImage.image, &_depthImage.allocation, nullptr);
+
+    //build a image-view for the draw image to use for rendering
+    VkImageViewCreateInfo dview_info = vkinit::imageview_create_info(_depthImage.imageFormat, _depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImage.imageView));
+//< depth_img
 
     // add to deletion queues
     _mainDeletionQueue.push_function([=]() {
         vkDestroyImageView(_device, _drawImage.imageView, nullptr);
         vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
+
+        vkDestroyImageView(_device, _depthImage.imageView, nullptr);
+        vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
     });
+}
+void VulkanEngine::resize_swapchain()
+{
+    vkDeviceWaitIdle(_device);
+
+    destroy_swapchain();
+
+    int w, h;
+    SDL_GetWindowSize(_window, &w, &h);
+    _windowExtent.width = w;
+    _windowExtent.height = h;
+
+    create_swapchain(_windowExtent.width, _windowExtent.height);
+
+    resize_requested = false;
 }
 void VulkanEngine::init_commands()
 {
@@ -588,6 +665,8 @@ void VulkanEngine::init_default_data()
     rect_indices[5] = 3;
 
     rectangle = uploadMesh(rect_indices, rect_vertices);
+
+    testMeshes = loadGltfMeshes(this, "..\\..\\assets\\basicmesh.glb").value();
 }
 void VulkanEngine::init_background_pipelines()
 {
@@ -787,13 +866,17 @@ void VulkanEngine::init_mesh_pipeline()
     //no multisampling
     pipelineBuilder.set_multisampling_none();
     //no blending
-    pipelineBuilder.disable_blending();
+    //pipelineBuilder.disable_blending();
+    // blending
+    //pipelineBuilder.enable_blending_alphablend();
+    pipelineBuilder.enable_blending_additive();
 
-    pipelineBuilder.disable_depthtest();
+    //pipelineBuilder.disable_depthtest();
+    pipelineBuilder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
     //connect the image format we will draw into, from draw image
     pipelineBuilder.set_color_attachment_format(_drawImage.imageFormat);
-    pipelineBuilder.set_depth_format(VK_FORMAT_UNDEFINED);
+    pipelineBuilder.set_depth_format(_depthImage.imageFormat);
 
     //finally build the pipeline
     _meshPipeline = pipelineBuilder.build_pipeline(_device);
