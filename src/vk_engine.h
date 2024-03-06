@@ -65,6 +65,10 @@ public:
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
 
+	VkPipelineLayout _meshPipelineLayout;
+	VkPipeline _meshPipeline;
+	GPUMeshBuffers rectangle;
+
 
 public:
 
@@ -101,8 +105,10 @@ private:
 	void init_sync_structures();
 	void init_descriptors();
 	void init_pipelines();
+	void init_default_data();
 	void init_background_pipelines();
 	void init_triangle_pipeline();
+	void init_mesh_pipeline();
 
 	void init_imgui();
 
