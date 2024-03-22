@@ -33,4 +33,13 @@ README.md is under construction, but just to keep track of the completed tasks s
 - The Graphics Pipiline
 - Setting up render pipeline
 - Mesh buffers
--
+- Mesh loading
+- Blending
+- Window resizing
+
+==> Render pipeline is set, I can render a Suzanne's (monkey) head with alpha blending (or not). Window can also be resized now without crashing.
+
+4. Textures and Engine Architecture
+
+- Descriptor Abstractions
+- 

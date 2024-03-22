@@ -38,7 +38,6 @@ public:
 	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
 	VkExtent2D _swapchainExtent;
-	VkExtent2D _drawExtent;
 	float renderScale = 1.f;
 
 	FrameData _frames[FRAME_OVERLAP];

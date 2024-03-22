@@ -38,7 +38,8 @@ std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanEngi
 //> load_mesh
     std::vector<std::shared_ptr<MeshAsset>> meshes;
 
-    // use the same vectors for all meshes so that the memory doesnt reallocate as often
+    // use the same vectors for all meshes so that the memory doesnt reallocate as
+    // often
     std::vector<uint32_t> indices;
     std::vector<Vertex> vertices;
     for (fastgltf::Mesh& mesh : gltf.meshes) {
@@ -131,5 +132,6 @@ std::optional<std::vector<std::shared_ptr<MeshAsset>>> loadGltfMeshes(VulkanEngi
     }
 
     return meshes;
+
 //< load_mesh
 }
