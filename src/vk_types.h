@@ -52,20 +52,6 @@ struct DeletionQueue {
     }
 };
 
-// important data required for rendering our frames, commands and semaphores
-struct FrameData {
-
-    VkCommandPool _commandPool;
-    VkCommandBuffer _mainCommandBuffer;
-
-    VkSemaphore _swapchainSemaphore, _renderSemaphore;	// (Sync) Semaphores used in GPU->GPU
-    VkFence _renderFence; // (Sync) Fence used in CPU->GPU
-
-    
-    DeletionQueue _deletionQueue;
-};
-constexpr unsigned int FRAME_OVERLAP = 2;
-
 // holds data needed for an image
 struct AllocatedImage {
     VkImage image;
@@ -122,4 +108,14 @@ struct GPUMeshBuffers {
 struct GPUDrawPushConstants {
     glm::mat4 worldMatrix;
     VkDeviceAddress vertexBuffer;
+};
+
+// holds the information for the uniform buffer of scene data
+struct GPUSceneData {
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 viewproj;
+    glm::vec4 ambientColor;
+    glm::vec4 sunlightDirection; // w for sun power
+    glm::vec4 sunlightColor;
 };

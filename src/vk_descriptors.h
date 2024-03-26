@@ -53,6 +53,7 @@ private:
 	std::vector<VkDescriptorPool> fullPools;
 	std::vector<VkDescriptorPool> readyPools;
 	uint32_t setsPerPool;
+
 };
 //< descriptor_growable
 
