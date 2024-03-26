@@ -69,10 +69,11 @@ public:
 	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
 
-	DescriptorAllocator globalDescriptorAllocator;
+	DescriptorAllocatorGrowable globalDescriptorAllocator;
 
 	VkDescriptorSet _drawImageDescriptors;
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
+	VkDescriptorSetLayout _singleImageDescriptorLayout;
 
 	VkPipeline _gradientPipeline;
 	VkPipelineLayout _gradientPipelineLayout;
@@ -101,7 +102,6 @@ public:
 	VkSampler _defaultSamplerLinear;
 	VkSampler _defaultSamplerNearest;
 
-	VkDescriptorSetLayout _singleImageDescriptorLayout;
 
 
 
