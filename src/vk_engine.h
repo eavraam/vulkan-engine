@@ -22,6 +22,20 @@ struct FrameData {
 };
 constexpr unsigned int FRAME_OVERLAP = 2;
 
+//> render_object
+struct RenderObject {
+	uint32_t indexCount;
+	uint32_t firstIndex;
+	VkBuffer indexBuffer;
+
+	MaterialInstance* material;
+
+	// will go into push-constants, as they are per-object dynamic data
+	glm::mat4 transform;
+	VkDeviceAddress vertexBufferAddress;
+};
+//< render_object
+
 class VulkanEngine {
 public:
 

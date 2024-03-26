@@ -42,4 +42,7 @@ README.md is under construction, but just to keep track of the completed tasks s
 4. Textures and Engine Architecture
 
 - Descriptor Abstractions
-- 
+- Textures
+- Engine Architecture
+
+(Abstracted descriptors and set up texture loading. Currently setting up the Engine Architecture regarding Material and GLTF loading.)
