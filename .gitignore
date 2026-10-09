@@ -1,0 +1,44 @@
+# Build output
+build/
+out/
+cmake-build-*/
+bin/
+obj/
+
+# CMake generated / local files
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+compile_commands.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sln.docstates
+*.vcxproj.user
+*.VC.db
+*.VC.opendb
+*.ipch
+x64/
+Debug/
+Release/
+
+# Other IDEs
+.idea/
+.vscode/
+
+# vcpkg (manifest mode, if used later)
+vcpkg_installed/
+
+# Compiled shaders
+*.spv
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs / captures
+*.log
+*.rdc
